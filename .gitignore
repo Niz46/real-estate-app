@@ -1,0 +1,17 @@
+**/node_modules/
+**/dist/
+
+client/.next/
+.hintrc
+.DS_Store
+Thumbs.db
+server/.env
+client/.env
+
+.vscode/
+
+client/node_modules/
+server/node_modules/
+client/dist/
+server/dist/
+node_modules
