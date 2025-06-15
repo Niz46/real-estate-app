@@ -1,10 +1,15 @@
 // File: server/src/controllers/paymentControllers.ts
 
 import { Request, Response } from "express";
+import PDFDocument from "pdfkit";
 import { PrismaClient } from "@prisma/client";
+import path from "path";
 import fs from "fs";
 
 const prisma = new PrismaClient();
+
+const RECEIPTS_DIR = path.join(__dirname, "../../receipts");
+if (!fs.existsSync(RECEIPTS_DIR)) fs.mkdirSync(RECEIPTS_DIR);
 
 /**
  * POST /payments
@@ -47,6 +52,51 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
       },
     });
 
+     // --- PDF generation starts here ---
+    const receiptFilename = `receipt-${newPayment.id}.pdf`;
+    const receiptPath = path.join(RECEIPTS_DIR, receiptFilename);
+
+    const doc = new PDFDocument({ size: "A4", margin: 50 });
+    const writeStream = fs.createWriteStream(receiptPath);
+    doc.pipe(writeStream);
+
+    // Simple receipt layout—customize as needed
+    doc
+      .fontSize(20)
+      .text("Payment Receipt", { align: "center" })
+      .moveDown(2);
+
+    doc.fontSize(12).text(`Receipt #: ${newPayment.id}`);
+    doc.text(`Date Paid: ${new Date(newPayment.paymentDate).toLocaleDateString()}`);
+    doc.text(`Lease ID: ${newPayment.leaseId}`);
+    doc.text(`Amount Due: $${newPayment.amountDue.toFixed(2)}`);
+    doc.text(`Amount Paid: $${newPayment.amountPaid.toFixed(2)}`);
+    doc.text(`Status: ${newPayment.paymentStatus}`);
+    doc.moveDown();
+
+    doc.text("Thank you for your payment.", { align: "center" });
+
+    doc.end();
+
+    // once the PDF is written, update the payment record
+    writeStream.on("finish", async () => {
+      console.log("📝 Receipt generated at:", receiptPath);
+      await prisma.payment.update({
+        where: { id: newPayment.id },
+        data: { receiptPath }, 
+      });
+      // finally, return to client
+      console.log("   Database updated with receiptPath")
+      res.status(201).json(newPayment);
+    });
+
+    writeStream.on("error", (err) => {
+      console.error("PDF write error:", err);
+      // still respond with payment, but without receiptPath
+      res.status(201).json(newPayment);
+    });
+    // --- PDF generation ends here ---
+
     res.status(201).json(newPayment);
   } catch (error: any) {
     console.error("Error creating payment:", error);
@@ -86,27 +136,40 @@ export const getPaymentsByTenant = async (
       .json({ message: "Internal server error retrieving tenant payments." });
   }
 };
-
+/**
+ * GET /payments/:id/receipt
+ * Downloads the receipt PDF for a given payment ID.
+ * Only manager & tenant can access this.
+ */
 export const downloadReceipt = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  const paymentId = Number(req.params.id);
-  const payment = await prisma.payment.findUnique({
-    where: { id: paymentId },
-    select: { receiptPath: true },
-  });
+  try {
+    const paymentId = Number(req.params.id);
+    const payment = await prisma.payment.findUnique({
+      where: { id: paymentId },
+      select: { receiptPath: true },
+    });
 
-  if (!payment?.receiptPath || !fs.existsSync(payment.receiptPath)) {
-    res.status(404).json({ error: "Receipt not found" });
-    return;  
+    console.log(`→ downloadReceipt called for payment ${paymentId}`);
+    console.log(`   stored receiptPath =`, payment?.receiptPath);
+
+    if (!payment?.receiptPath || !fs.existsSync(payment.receiptPath)) {
+      console.warn("   Receipt file missing on disk");
+      res.status(404).json({ error: "Receipt not found" });
+      return;
+    }
+
+    // stream it
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=receipt_${paymentId}.pdf`
+    );
+    fs.createReadStream(payment.receiptPath).pipe(res);
+  } catch (err) {
+    console.error("Error in downloadReceipt:", err);
+    res.status(500).json({ error: "Server error" });
   }
-
-  res.setHeader("Content-Type", "application/pdf");
-  res.setHeader(
-    "Content-Disposition",
-    `attachment; filename=receipt_${paymentId}.pdf`
-  );
-
-  fs.createReadStream(payment.receiptPath).pipe(res);
 };

@@ -20,6 +20,6 @@ router.get(
   getPaymentsByTenant
 );
 
-router.get("/:id/receipt", authMiddleware(["manager","tenant"]), downloadReceipt);
+router.get("/:id/receipt", downloadReceipt);
 
 export default router;

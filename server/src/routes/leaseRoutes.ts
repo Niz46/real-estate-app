@@ -16,10 +16,5 @@ router.get("/", authMiddleware(["manager", "tenant"]), getLeases);
 // GET /leases/:id/payments
 router.get("/:id/payments", authMiddleware(["manager", "tenant"]), getLeasePayments);
 
-router.get(
-  "/:id/agreement",
-  authMiddleware(["manager", "tenant"]),
-  downloadAgreement
-);
-
+router.get("/:id/agreement", downloadAgreement);
 export default router;

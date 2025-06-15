@@ -2,6 +2,7 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { toast } from "sonner";
 
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
@@ -19,17 +20,15 @@ export function formatPriceValue(value: number | null, isMin: boolean) {
   }
   return isMin ? `$${value}+` : `<$${value}`;
 }
- 
+
 export function cleanParams(params: Record<string, any>): Record<string, any> {
   return Object.fromEntries(
     Object.entries(params).filter(
-      (
-        [_, value]  
-      ) =>
+      ([_, value]) =>
         value !== undefined &&
         value !== "any" &&
         value !== "" &&
-        (Array.isArray(value) ? value.some((v) => v !== null) : value !== null)
+        (Array.isArray(value) ? value.some((v) => v != null) : value != null)
     )
   );
 }
@@ -44,7 +43,6 @@ export const withToast = async <T>(
   messages: Partial<MutationMessages>
 ) => {
   const { success, error } = messages;
-
   try {
     const result = await mutationFn;
     if (success) toast.success(success);
@@ -78,28 +76,29 @@ export const createNewUserInDatabase = async (
   if (createUserResponse.error) {
     throw new Error("Failed to create user record");
   }
-
   return createUserResponse;
 };
 
 /**
- * Download any binary file from the given URL and prompt the user to save it.
+ * Download any binary file from the API server and prompt the user to save it.
  *
- * @param url       – absolute or relative API endpoint returning a Blob
- * @param filename  – desired filename (including extension) for the download
+ * @param path      – API path, e.g. "/payments/1/receipt" (no base URL)
+ * @param filename  – desired filename (including extension)
  */
-export async function downloadFile(url: string, filename: string): Promise<void> {
+// utils.ts
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "");
+
+export async function downloadFile(path: string, filename: string) {
+  const url = `${API_BASE}${path}`;      
   try {
     const res = await fetch(url, {
-      credentials: "include",      // send cookies/auth if needed
-      headers: { "Accept": "*/*" },// accept any binary
+      credentials: "include",            // if you rely on cookies
+      headers: { Accept: "*/*" },
     });
-
     if (!res.ok) {
       console.error(`Download failed: ${res.status} ${res.statusText}`);
       return;
     }
-
     const blob = await res.blob();
     const blobUrl = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -113,3 +112,4 @@ export async function downloadFile(url: string, filename: string): Promise<void>
     console.error("Download error:", err);
   }
 }
+
