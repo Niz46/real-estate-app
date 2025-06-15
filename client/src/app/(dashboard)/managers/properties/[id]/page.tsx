@@ -1,53 +1,106 @@
-"use client";
+// File: client/src/app/(dashboard)/managers/properties/[id]/page.tsx
 
+"use client";
+import React from "react";
+import { useParams } from "next/navigation";
+import Link from "next/link";
 import Header from "@/components/Header";
 import Loading from "@/components/Loading";
 import {
   Table,
-  TableBody,
-  TableCell,
-  TableHead,
   TableHeader,
   TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
 } from "@/components/ui/table";
-import {
-  useGetPaymentsQuery,
-  useGetPropertyLeasesQuery,
-  useGetPropertyQuery,
-} from "@/state/api";
-import { ArrowDownToLine, ArrowLeft, Check, Download } from "lucide-react";
+import { ArrowLeft, Check, ArrowDownToLine } from "lucide-react";
+import { useGetPropertyQuery, useGetPropertyLeasesQuery, useGetPaymentsQuery } from "@/state/api";
+import { Lease } from "@/types/prismaTypes";
 import Image from "next/image";
-import Link from "next/link";
-import { useParams } from "next/navigation";
-import React from "react";
+import { Button } from "@/components/ui/button";
 
 const PropertyTenants = () => {
   const { id } = useParams();
   const propertyId = Number(id);
 
-  const { data: property, isLoading: propertyLoading } =
-    useGetPropertyQuery(propertyId);
-  const { data: leases, isLoading: leasesLoading } =
-    useGetPropertyLeasesQuery(propertyId);
-  const { data: payments, isLoading: paymentsLoading } =
-    useGetPaymentsQuery(propertyId);
+  const { data: property, isLoading: propLoading } = useGetPropertyQuery(propertyId);
+  const { data: leases, isLoading: leaseLoading } = useGetPropertyLeasesQuery(propertyId);
 
-  if (propertyLoading || leasesLoading || paymentsLoading) return <Loading />;
+  if (propLoading || leaseLoading) return <Loading />;
 
-  const getCurrentMonthPaymentStatus = (leaseId: number) => {
-    const currentDate = new Date();
-    const currentMonthPayment = payments?.find(
-      (payment) =>
-        payment.leaseId === leaseId &&
-        new Date(payment.dueDate).getMonth() === currentDate.getMonth() &&
-        new Date(payment.dueDate).getFullYear() === currentDate.getFullYear()
+  // Inline LeaseRow component (so we stay in one file)
+  const LeaseRow: React.FC<{ lease: Lease }> = ({ lease }) => {
+    // Fetch payments for this lease
+    const { data: payments = [] } = useGetPaymentsQuery(lease.id);
+    const now = new Date();
+    const current = payments.find(
+      p =>
+        new Date(p.dueDate).getMonth() === now.getMonth() &&
+        new Date(p.dueDate).getFullYear() === now.getFullYear()
     );
-    return currentMonthPayment?.paymentStatus || "Not Paid";
+    const status = current?.paymentStatus ?? "Not Paid";
+
+    return (
+      <TableRow key={lease.id} className="h-24">
+        {/* Investor */}
+        <TableCell>
+          <div className="flex items-center space-x-3">
+            <Image
+              src="/landing-i1.png"
+              alt={lease.tenant.name}
+              width={40}
+              height={40}
+              className="rounded-full"
+            />
+            <div>
+              <div className="font-semibold">{lease.tenant.name}</div>
+              <div className="text-sm text-gray-500">{lease.tenant.email}</div>
+            </div>
+          </div>
+        </TableCell>
+
+        {/* Lease Period */}
+        <TableCell>
+          {new Date(lease.startDate).toLocaleDateString()} –{" "}
+          {new Date(lease.endDate).toLocaleDateString()}
+        </TableCell>
+
+        {/* Monthly Rent */}
+        <TableCell>${lease.rent.toFixed(2)}</TableCell>
+
+        {/* Current Month Status */}
+        <TableCell>
+          <span
+            className={`px-2 py-1 rounded-full text-xs font-semibold ${
+              status === "Paid"
+                ? "bg-green-100 text-green-800 border-green-300"
+                : "bg-red-100 text-red-800 border-red-300"
+            }`}
+          >
+            {status === "Paid" && (
+              <Check className="w-4 h-4 inline-block mr-1" />
+            )}
+            {status}
+          </span>
+        </TableCell>
+
+        {/* Contact */}
+        <TableCell>{lease.tenant.phoneNumber}</TableCell>
+
+        {/* Action */}
+        <TableCell>
+          <Button className="border border-gray-300 text-gray-700 py-2 px-4 rounded-md flex items-center justify-center hover:bg-primary-700 hover:text-primary-50">
+            <ArrowDownToLine className="w-4 h-4 mr-1" />
+            Download Agreement
+          </Button>
+        </TableCell>
+      </TableRow>
+    );
   };
 
   return (
     <div className="dashboard-container">
-      {/* Back to properties page */}
       <Link
         href="/managers/properties"
         className="flex items-center mb-4 hover:text-primary-500"
@@ -58,101 +111,28 @@ const PropertyTenants = () => {
       </Link>
 
       <Header
-        title={property?.name || "My Property"}
-        subtitle="Manage tenants and leases for this property"
+        title={property?.name || "Property"}
+        subtitle="Manage tenants and leases"
       />
 
-      <div className="w-full space-y-6">
-        <div className="mt-8 bg-white rounded-xl shadow-md overflow-hidden p-6">
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <h2 className="text-2xl font-bold mb-1">Investor Overview</h2>
-              <p className="text-sm text-gray-500">
-                Manage and view all investors for this property.
-              </p>
-            </div>
-            <div>
-              <button
-                className={`bg-white border border-gray-300 text-gray-700 py-2
-              px-4 rounded-md flex items-center justify-center hover:bg-primary-700 hover:text-primary-50`}
-              >
-                <Download className="w-5 h-5 mr-2" />
-                <span>Download All</span>
-              </button>
-            </div>
-          </div>
-          <hr className="mt-4 mb-1" />
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Investor</TableHead>
-                  <TableHead>Lease Period</TableHead>
-                  <TableHead>Monthly Rent</TableHead>
-                  <TableHead>Current Month Status</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {leases?.map((lease) => (
-                  <TableRow key={lease.id} className="h-24">
-                    <TableCell>
-                      <div className="flex items-center space-x-3">
-                        <Image
-                          src="/landing-i1.png"
-                          alt={lease.tenant.name}
-                          width={40}
-                          height={40}
-                          className="rounded-full"
-                        />
-                        <div>
-                          <div className="font-semibold">
-                            {lease.tenant.name}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {lease.tenant.email}
-                          </div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        {new Date(lease.startDate).toLocaleDateString()} -
-                      </div>
-                      <div>{new Date(lease.endDate).toLocaleDateString()}</div>
-                    </TableCell>
-                    <TableCell>${lease.rent.toFixed(2)}</TableCell>
-                    <TableCell>
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          getCurrentMonthPaymentStatus(lease.id) === "Paid"
-                            ? "bg-green-100 text-green-800 border-green-300"
-                            : "bg-red-100 text-red-800 border-red-300"
-                        }`}
-                      >
-                        {getCurrentMonthPaymentStatus(lease.id) === "Paid" && (
-                          <Check className="w-4 h-4 inline-block mr-1" />
-                        )}
-                        {getCurrentMonthPaymentStatus(lease.id)}
-                      </span>
-                    </TableCell>
-                    <TableCell>{lease.tenant.phoneNumber}</TableCell>
-                    <TableCell>
-                      <button
-                        className={`border border-gray-300 text-gray-700 py-2 px-4 rounded-md flex 
-                      items-center justify-center font-semibold hover:bg-primary-700 hover:text-primary-50`}
-                      >
-                        <ArrowDownToLine className="w-4 h-4 mr-1" />
-                        Download Agreement
-                      </button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
+      <div className="overflow-x-auto mt-6">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Investor</TableHead>
+              <TableHead>Lease Period</TableHead>
+              <TableHead>Monthly Rent</TableHead>
+              <TableHead>Current Month Status</TableHead>
+              <TableHead>Contact</TableHead>
+              <TableHead>Action</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {leases?.map((lease) => (
+              <LeaseRow key={lease.id} lease={lease} />
+            ))}
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

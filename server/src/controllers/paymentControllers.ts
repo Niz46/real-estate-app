@@ -2,6 +2,7 @@
 
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
+import fs from "fs";
 
 const prisma = new PrismaClient();
 
@@ -84,4 +85,28 @@ export const getPaymentsByTenant = async (
       .status(500)
       .json({ message: "Internal server error retrieving tenant payments." });
   }
+};
+
+export const downloadReceipt = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const paymentId = Number(req.params.id);
+  const payment = await prisma.payment.findUnique({
+    where: { id: paymentId },
+    select: { receiptPath: true },
+  });
+
+  if (!payment?.receiptPath || !fs.existsSync(payment.receiptPath)) {
+    res.status(404).json({ error: "Receipt not found" });
+    return;  
+  }
+
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename=receipt_${paymentId}.pdf`
+  );
+
+  fs.createReadStream(payment.receiptPath).pipe(res);
 };

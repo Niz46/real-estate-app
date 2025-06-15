@@ -2,6 +2,7 @@
 
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
+import fs from "fs";
 
 const prisma = new PrismaClient();
 
@@ -84,4 +85,28 @@ export const getLeasesByPropertyId = async (
       .status(500)
       .json({ message: "Internal server error retrieving leases by property ID." });
   }
+};
+
+export const downloadAgreement = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const leaseId = Number(req.params.id);
+  const lease = await prisma.lease.findUnique({
+    where: { id: leaseId },
+    select: { agreementPath: true },
+  });
+
+  if (!lease?.agreementPath || !fs.existsSync(lease.agreementPath)) {
+    res.status(404).json({ error: "Lease agreement not found" });
+    return;
+  }
+
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename=lease_agreement_${leaseId}.pdf`
+  );
+
+  fs.createReadStream(lease.agreementPath).pipe(res);
 };

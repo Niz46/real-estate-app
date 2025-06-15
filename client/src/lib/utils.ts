@@ -19,13 +19,12 @@ export function formatPriceValue(value: number | null, isMin: boolean) {
   }
   return isMin ? `$${value}+` : `<$${value}`;
 }
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export function cleanParams(params: Record<string, any>): Record<string, any> {
   return Object.fromEntries(
     Object.entries(params).filter(
       (
-        [_, value] // eslint-disable-line @typescript-eslint/no-unused-vars
+        [_, value]  
       ) =>
         value !== undefined &&
         value !== "any" &&
@@ -82,3 +81,35 @@ export const createNewUserInDatabase = async (
 
   return createUserResponse;
 };
+
+/**
+ * Download any binary file from the given URL and prompt the user to save it.
+ *
+ * @param url       – absolute or relative API endpoint returning a Blob
+ * @param filename  – desired filename (including extension) for the download
+ */
+export async function downloadFile(url: string, filename: string): Promise<void> {
+  try {
+    const res = await fetch(url, {
+      credentials: "include",      // send cookies/auth if needed
+      headers: { "Accept": "*/*" },// accept any binary
+    });
+
+    if (!res.ok) {
+      console.error(`Download failed: ${res.status} ${res.statusText}`);
+      return;
+    }
+
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(blobUrl);
+  } catch (err) {
+    console.error("Download error:", err);
+  }
+}

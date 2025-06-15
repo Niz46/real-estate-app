@@ -2,6 +2,11 @@
 
 "use client";
 
+import React, { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "sonner";
+
 import { CustomFormField } from "@/components/FormField";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,13 +19,9 @@ import { Form } from "@/components/ui/form";
 import { ApplicationFormData, applicationSchema } from "@/lib/schemas";
 import {
   useCreateApplicationMutation,
-  useCreatePaymentMutation,
-  useGetPropertyQuery,
   useGetAuthUserQuery,
+  useGetPropertyQuery,
 } from "@/state/api";
-import { zodResolver } from "@hookform/resolvers/zod";
-import React, { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
 
 interface ApplicationModalProps {
   isOpen: boolean;
@@ -34,7 +35,6 @@ const ApplicationModal = ({
   propertyId,
 }: ApplicationModalProps) => {
   const [createApplication] = useCreateApplicationMutation();
-  const [createPayment] = useCreatePaymentMutation();
   const { data: authUser } = useGetAuthUserQuery();
   const { data: property, isLoading: propertyLoading } =
     useGetPropertyQuery(propertyId);
@@ -63,7 +63,7 @@ const ApplicationModal = ({
 
     setIsSubmitting(true);
     try {
-      const createdApp = await createApplication({
+      await createApplication({
         applicationDate: new Date().toISOString(),
         status: "Pending",
         propertyId: property.id,
@@ -74,21 +74,12 @@ const ApplicationModal = ({
         message: data.message,
       }).unwrap();
 
-      const now = new Date();
-      const dueDate = new Date(now);
-      dueDate.setDate(now.getDate() + 30);
-
-      await createPayment({
-        leaseId: createdApp.leaseId ?? 0,
-        amountDue: property.applicationFee,
-        amountPaid: 0,
-        dueDate: dueDate.toISOString(),
-        paymentDate: now.toISOString(),
-      }).unwrap();
-
+      toast.success("Application submitted! Please follow payment instructions.");
       setShowSuccess(true);
-    } catch {
-      console.error("Error during application/payment flow");
+    } catch (err) {
+      console.error("Application creation failed:", err);
+      toast.error("There was an issue submitting your application. Please try again.");
+      setShowSuccess(true);
     } finally {
       setIsSubmitting(false);
     }
@@ -96,62 +87,57 @@ const ApplicationModal = ({
 
   return (
     <>
-      {" "}
       <Dialog open={isOpen} onOpenChange={onClose}>
-        {" "}
         <DialogContent className="bg-white max-w-lg mx-auto">
-          {" "}
           <DialogHeader className="mb-4">
-            {" "}
-            <DialogTitle>Submit Application for this Property</DialogTitle>{" "}
+            <DialogTitle>Submit Application for this Property</DialogTitle>
           </DialogHeader>
+
           {propertyLoading || !property ? (
             <div className="p-8 text-center">Loading property details…</div>
           ) : (
             <Form {...form}>
-              {" "}
               <form
                 onSubmit={form.handleSubmit(onSubmit)}
                 className="space-y-5 px-4 pb-4"
               >
-                {" "}
                 <CustomFormField
                   name="name"
                   label="Name"
                   type="text"
                   placeholder="Enter your full name"
-                />{" "}
+                />
                 <CustomFormField
                   name="email"
                   label="Email"
                   type="email"
                   placeholder="Enter your email address"
-                />{" "}
+                />
                 <CustomFormField
                   name="phoneNumber"
                   label="Phone Number"
                   type="text"
                   placeholder="Enter your phone number"
-                />{" "}
+                />
                 <CustomFormField
                   name="message"
                   label="Message (Optional)"
                   type="textarea"
                   placeholder="Enter any additional information"
-                />{" "}
+                />
+
                 <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-md">
-                  {" "}
                   <p className="text-yellow-800">
-                    {" "}
                     <strong>Note:</strong> By clicking “Invest & Pay Application
-                    Fee,” you consent to a non-refundable fee of{" "}
+                    Fee,” you consent to a non‑refundable fee of{" "}
                     <span className="font-semibold">
                       €{property.applicationFee.toFixed(2)}
                     </span>{" "}
                     (EUR). Your application will remain pending until payment
-                    and approval are complete.{" "}
-                  </p>{" "}
-                </div>{" "}
+                    and approval are complete.
+                  </p>
+                </div>
+
                 <Button
                   type="submit"
                   className="bg-primary-700 text-white w-full"
@@ -159,13 +145,14 @@ const ApplicationModal = ({
                 >
                   {isSubmitting
                     ? "Processing…"
-                    : "Invest & Pay Application Fee"}{" "}
-                </Button>{" "}
-              </form>{" "}
+                    : "Invest & Pay Application Fee"}
+                </Button>
+              </form>
             </Form>
-          )}{" "}
-        </DialogContent>{" "}
+          )}
+        </DialogContent>
       </Dialog>
+
       <Dialog open={showSuccess} onOpenChange={() => {}}>
         <DialogContent className="bg-white max-w-md mx-auto">
           <DialogHeader className="mb-4">

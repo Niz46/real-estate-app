@@ -102,6 +102,7 @@ CREATE TABLE "Lease" (
     "deposit" DOUBLE PRECISION NOT NULL,
     "propertyId" INTEGER NOT NULL,
     "tenantCognitoId" TEXT NOT NULL,
+    "agreementPath" TEXT,
 
     CONSTRAINT "Lease_pkey" PRIMARY KEY ("id")
 );
@@ -115,6 +116,7 @@ CREATE TABLE "Payment" (
     "paymentDate" TIMESTAMP(3) NOT NULL,
     "paymentStatus" "PaymentStatus" NOT NULL,
     "leaseId" INTEGER NOT NULL,
+    "receiptPath" TEXT,
 
     CONSTRAINT "Payment_pkey" PRIMARY KEY ("id")
 );

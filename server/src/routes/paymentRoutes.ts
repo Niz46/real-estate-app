@@ -4,7 +4,7 @@ import express from "express";
 import { authMiddleware } from "../middleware/authMiddleware";
 import {
   createPayment,
-  getPaymentsByTenant} from "../controllers/paymentControllers";
+  getPaymentsByTenant, downloadReceipt} from "../controllers/paymentControllers";
 
 const router = express.Router();
 
@@ -19,5 +19,7 @@ router.get(
   authMiddleware(["manager", "tenant"]),
   getPaymentsByTenant
 );
+
+router.get("/:id/receipt", authMiddleware(["manager","tenant"]), downloadReceipt);
 
 export default router;

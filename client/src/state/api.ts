@@ -359,7 +359,7 @@ export const api = createApi({
         method: "PUT",
         body: { status },
       }),
-      invalidatesTags: ["Applications", "Leases"],
+      invalidatesTags: ["Applications", "Leases", "Payments"],
       onQueryStarted: async (_, { queryFulfilled }) => {
         await withToast(queryFulfilled, {
           success: "Application status updated!",
